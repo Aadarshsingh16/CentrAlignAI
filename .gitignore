@@ -1,0 +1,21 @@
+# Environment variables
+.env
+
+# Python bytecode and virtual envs
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+ENV/
+
+# Testing and Playwright
+.pytest_cache/
+playwright-report/
+test-results/
+
+# Traces and temp DB files
+*.db
+trace_*.jsonl
+evals/results.json
