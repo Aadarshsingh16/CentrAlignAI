@@ -1,0 +1,13 @@
+ACME CORP
+Logistics & Shipping Services
+
+Vendor: Acme Corp
+Invoice Number: ACMC-2026-015
+Invoice Date: 15/06/2026
+Due Date: 15/07/2026
+
+Description:
+Freight Transportation and Distribution Services
+Total Due: $2,400.00
+
+Payment Details: Standard Net 30

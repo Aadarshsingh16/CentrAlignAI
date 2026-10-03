@@ -1,0 +1,15 @@
+CYBERDYNE SYSTEMS
+Advanced Technology Division
+
+Vendor: Cyberdyne Systems
+Invoice Number: CYB-2026-099
+Invoice Date: 2026-10-12
+Due Date: 2026-11-15
+
+Item Description:
+Neural Network Coprocessor Prototype Units (Batch A)
+Total Amount Due: $95,000.00
+
+Note: Requires executive financial authorization.
+Payment Terms: Net 30
+Remit to: payments@cyberdyne.systems

@@ -1,0 +1,13 @@
+ACME INVOICE
+Official Billing Statement
+
+Vendor: Acme
+Invoice Number: ACM-2026-202
+Invoice Date: 15 Oct 2026
+Due Date: 15 Nov 2026
+
+Description of Goods:
+Industrial Anvils and High-Velocity Springboards
+Total Amount: $5,200.00
+
+Terms: Payment due within 30 days of receipt.

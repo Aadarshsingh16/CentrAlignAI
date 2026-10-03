@@ -1,0 +1,15 @@
+UMBRELLA CORPORATION
+COMMERCIAL INVOICE
+
+Vendor: Umbrella
+Invoice Number: UMB-2026-001
+Date: 2026-08-01
+Due Date: 2026-08-15
+
+Item: Laboratory Consumables & Reagents
+Subtotal: $1,450.00
+Tax: $0.00
+Total Amount: $1,450.00
+
+Status: Net 14 Days
+Payment instructions: Raccoon City Treasury Account

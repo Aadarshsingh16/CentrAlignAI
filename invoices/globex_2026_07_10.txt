@@ -1,0 +1,13 @@
+INVOICE
+
+Vendor: Globex
+Invoice Number: GLX-2026-088
+Date: 2026-07-10
+Due Date: 2026-08-10
+
+Description:
+Q2 Cloud Infrastructure Support Services
+Total Due: $4,500.00
+
+Payment Terms: Net 30
+Remit to: accounts@globex-corp.com

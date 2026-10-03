@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}New Bill - Internal Billing System{% endblock %}
+
+{% block content %}
+<h2 id="new-bill-heading">Enter New Bill</h2>
+
+<form id="new-bill-form" action="/bills/new" method="POST">
+    <div class="form-group">
+        <label for="vendor-select">Vendor</label>
+        <select id="vendor-select" name="vendor" required>
+            <option value="">-- Select Vendor --</option>
+            <option value="Acme Corp" {% if form_data.get('vendor') == 'Acme Corp' %}selected{% endif %}>Acme Corp</option>
+            <option value="Acme Corporation" {% if form_data.get('vendor') == 'Acme Corporation' %}selected{% endif %}>Acme Corporation</option>
+            <option value="Cyberdyne Systems" {% if form_data.get('vendor') == 'Cyberdyne Systems' %}selected{% endif %}>Cyberdyne Systems</option>
+            <option value="Globex" {% if form_data.get('vendor') == 'Globex' %}selected{% endif %}>Globex</option>
+            <option value="Initech" {% if form_data.get('vendor') == 'Initech' %}selected{% endif %}>Initech</option>
+            <option value="Massive Dynamic" {% if form_data.get('vendor') == 'Massive Dynamic' %}selected{% endif %}>Massive Dynamic</option>
+            <option value="Umbrella" {% if form_data.get('vendor') == 'Umbrella' %}selected{% endif %}>Umbrella</option>
+            <option value="Wayne Enterprises" {% if form_data.get('vendor') == 'Wayne Enterprises' %}selected{% endif %}>Wayne Enterprises</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="invoice-no-input">Invoice Number</label>
+        <input type="text" id="invoice-no-input" name="invoice_no" value="{{ form_data.get('invoice_no', '') }}" placeholder="e.g. GLX-2026-099" required>
+    </div>
+
+    <div class="form-group">
+        <label for="amount-input">Amount ($)</label>
+        <input type="text" id="amount-input" name="amount" value="{{ form_data.get('amount', '') }}" placeholder="e.g. 7850.00" required>
+    </div>
+
+    <div class="form-group">
+        <label for="due-date-input">Due Date (YYYY-MM-DD)</label>
+        <input type="text" id="due-date-input" name="due_date" value="{{ form_data.get('due_date', '') }}" placeholder="YYYY-MM-DD" required>
+        <small style="color: #718096; display: block; margin-top: 4px;">Strict requirement: YYYY-MM-DD</small>
+    </div>
+
+    <div style="margin-top: 24px;">
+        <button type="submit" id="save-bill-btn" class="btn btn-success">Save Bill</button>
+        <a href="/bills" id="cancel-btn" class="btn" style="background: #e2e8f0; color: #4a5568; margin-left: 8px;">Cancel</a>
+    </div>
+</form>
+{% endblock %}

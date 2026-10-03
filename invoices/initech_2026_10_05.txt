@@ -1,0 +1,14 @@
+INITECH CONSULTING GROUP
+INVOICE
+
+Vendor: Initech
+Invoice #: INT-2026-404
+Invoice Date: 05/10/2026
+Due Date: 25/11/2026
+
+Services Rendered:
+TPS Report Automation and Consulting: $3,400.00
+Amount Due: $3,400.00
+
+Please note dates are listed in DD/MM/YYYY format.
+Wire payment to Initech Financial Services.

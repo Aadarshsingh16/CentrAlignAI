@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Bill #{{ bill.id }} - Internal Billing System{% endblock %}
+
+{% block content %}
+<div class="action-bar">
+    <h2 id="bill-detail-heading">Bill Details #{{ bill.id }}</h2>
+    <a href="/bills" id="back-to-bills-btn" class="btn" style="background: #e2e8f0; color: #4a5568;">&larr; Back to Bills</a>
+</div>
+
+<div id="bill-detail-card" style="background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+    <p style="margin-bottom: 12px;"><strong>Vendor:</strong> <span id="bill-vendor">{{ bill.vendor }}</span></p>
+    <p style="margin-bottom: 12px;"><strong>Invoice Number:</strong> <span id="bill-invoice-no">{{ bill.invoice_no }}</span></p>
+    <p style="margin-bottom: 12px;"><strong>Amount:</strong> <span id="bill-amount">${{ "%.2f"|format(bill.amount) }}</span></p>
+    <p style="margin-bottom: 12px;"><strong>Due Date:</strong> <span id="bill-due-date">{{ bill.due_date }}</span></p>
+    <p style="margin-bottom: 12px;"><strong>Status:</strong> 
+        <span id="bill-status" class="badge {% if bill.status == 'paid' %}badge-paid{% else %}badge-pending{% endif %}">
+            {{ bill.status }}
+        </span>
+    </p>
+    <p style="margin-bottom: 12px; color: #718096; font-size: 13px;"><strong>Created At:</strong> <span id="bill-created-at">{{ bill.created_at }}</span></p>
+</div>
+
+{% if bill.status != 'paid' %}
+<form action="/bills/{{ bill.id }}/pay" method="POST">
+    <button type="submit" id="mark-paid-btn" class="btn btn-success">Mark as Paid</button>
+</form>
+{% else %}
+<p style="color: #38a169; font-weight: 600;" id="already-paid-notice">This bill is already marked as paid.</p>
+{% endif %}
+{% endblock %}

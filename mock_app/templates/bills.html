@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Bills - Internal Billing System{% endblock %}
+
+{% block content %}
+<div class="action-bar">
+    <h2 id="bills-heading">All Bills</h2>
+    <div>
+        <a href="/bills/new" id="create-bill-btn" class="btn btn-primary">+ New Bill</a>
+        <form action="/bills/delete_all" method="POST" style="display: inline-block; margin-left: 10px;">
+            <button type="submit" id="delete-all-bills-btn" class="btn btn-danger">Delete All Bills</button>
+        </form>
+    </div>
+</div>
+
+<table id="bills-table">
+    <thead>
+        <tr>
+            <th id="th-id">ID</th>
+            <th id="th-vendor">Vendor</th>
+            <th id="th-invoice-no">Invoice No</th>
+            <th id="th-amount">Amount ($)</th>
+            <th id="th-due-date">Due Date</th>
+            <th id="th-status">Status</th>
+            <th id="th-actions">Actions</th>
+        </tr>
+    </thead>
+    <tbody id="bills-body">
+        {% for bill in bills %}
+        <tr id="bill-row-{{ bill.id }}">
+            <td class="bill-id">{{ bill.id }}</td>
+            <td class="bill-vendor">{{ bill.vendor }}</td>
+            <td class="bill-invoice-no">{{ bill.invoice_no }}</td>
+            <td class="bill-amount">${{ "%.2f"|format(bill.amount) }}</td>
+            <td class="bill-due-date">{{ bill.due_date }}</td>
+            <td class="bill-status">
+                <span class="badge {% if bill.status == 'paid' %}badge-paid{% else %}badge-pending{% endif %}">
+                    {{ bill.status }}
+                </span>
+            </td>
+            <td class="bill-actions">
+                <a href="/bills/{{ bill.id }}" id="view-bill-{{ bill.id }}-btn" class="btn btn-primary" style="padding: 4px 10px; font-size: 12px;">View</a>
+            </td>
+        </tr>
+        {% else %}
+        <tr id="no-bills-row">
+            <td colspan="7" style="text-align: center; color: #718096; padding: 24px;">No bills recorded in the system.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

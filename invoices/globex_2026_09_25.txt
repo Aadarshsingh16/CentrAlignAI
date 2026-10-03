@@ -1,0 +1,13 @@
+INVOICE
+
+Vendor: Globex
+Invoice Number: GLX-2026-099
+Date: 2026-09-25
+Due Date: 2026-10-25
+
+Description:
+Q3 Dedicated Server Maintenance & Managed Security
+Total Due: $7,850.00
+
+Payment Terms: Net 30
+Remit to: accounts@globex-corp.com
