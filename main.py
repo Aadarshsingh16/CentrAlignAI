@@ -43,6 +43,15 @@ def main():
         input_fn=terminal_ask,
     )
 
+    policy = Policy(config_path="policy.yaml" if Path("policy.yaml").exists() else None)
+    approval_guard = make_approval_guard(
+        browser=browser,
+        policy=policy,
+        approval_fn=terminal_approval_fn,
+        state=state,
+    )
+    registry.guards.append(approval_guard)
+
     llm = LLM(model=args.model)
 
     print(f"\nStarting Task: {args.task}")

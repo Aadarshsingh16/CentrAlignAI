@@ -10,6 +10,9 @@ class AgentState:
     facts: dict[str, Any] = field(default_factory=dict)
     steps_done: list[str] = field(default_factory=list)
     open_questions: list[str] = field(default_factory=list)
+    approvals: int = 0
+    denials: int = 0
+    asks: int = 0
 
     def remember(self, key: str, value: Any) -> None:
         """Store or update a key-value fact in memory."""
@@ -25,6 +28,9 @@ class AgentState:
             "facts": dict(self.facts),
             "steps_done": list(self.steps_done),
             "open_questions": list(self.open_questions),
+            "approvals": self.approvals,
+            "denials": self.denials,
+            "asks": self.asks,
         }
 
     def to_prompt(self, max_chars: int = 1500) -> str:

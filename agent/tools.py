@@ -346,6 +346,7 @@ def build_default_registry(
 
     # Tool: ask_user
     def ask_user(question: str) -> dict[str, Any]:
+        state.asks += 1
         answer = input_fn(question)
         return {"ok": True, "observation": f"User answer: {answer}"}
 

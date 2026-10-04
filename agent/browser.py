@@ -234,6 +234,45 @@ class BrowserSession:
         except Exception as e:
             return {"ok": False, "error": str(e), "observation": f"Failed to describe element [{element_id}]: {e}"}
 
+    def form_values(self) -> dict[str, str]:
+        """
+        Read-only inspection of current form field values on the page.
+        Does not mutate DOM or change snapshot element ids.
+        """
+        try:
+            page = self._ensure_page()
+            script = """
+            () => {
+                const results = {};
+                const inputs = Array.from(document.querySelectorAll('input:not([type="hidden"]), select, textarea'));
+                for (const el of inputs) {
+                    let label = '';
+                    if (el.id) {
+                        try {
+                            const lbl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+                            if (lbl && lbl.innerText.trim()) label = lbl.innerText.trim();
+                        } catch (e) {}
+                    }
+                    if (!label && el.placeholder) label = el.placeholder;
+                    if (!label && el.name) label = el.name;
+                    if (!label && el.id) label = el.id;
+                    if (!label) label = 'field';
+
+                    let val = '';
+                    if (el.tagName.toLowerCase() === 'select') {
+                        val = el.options[el.selectedIndex]?.text || el.value || '';
+                    } else {
+                        val = el.value || '';
+                    }
+                    results[label] = val;
+                }
+                return results;
+            }
+            """
+            return page.evaluate(script) or {}
+        except Exception:
+            return {}
+
     def click(self, element_id: str) -> dict[str, Any]:
         """Click an element by its numeric snapshot id."""
         try:
