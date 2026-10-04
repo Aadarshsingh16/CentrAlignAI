@@ -2,10 +2,12 @@ import copy
 import json
 from dataclasses import dataclass
 from typing import Any, Optional
+from agent.env import Environment
 from agent.llm import LLM, LLMError
 from agent.state import AgentState
 from agent.tools import ToolRegistry
 from agent.trace import Trace
+from agent.verifier import compute_diff, verify
 
 @dataclass
 class AgentResult:
@@ -14,6 +16,9 @@ class AgentResult:
     claim: str
     evidence: str
     steps: int
+    verified: Optional[bool] = None
+    verdict: Optional[dict[str, Any]] = None
+    diff: Optional[dict[str, Any]] = None
 
 SYSTEM_PROMPT = """You are an autonomous worker designed to accomplish user goals using the provided tools.
 Follow these operational guidelines:
@@ -80,10 +85,12 @@ def run_agent(
     trace: Trace,
     context: str = "",
     max_steps: int = 40,
+    env: Optional[Environment] = None,
 ) -> AgentResult:
     """
     Executes the task-agnostic autonomous agent loop.
     Enforces loop safety: max steps, repeated action detection, and structured trace logging.
+    Verifies declared task outcomes independently against environment ground truth.
     """
     full_system = SYSTEM_PROMPT
     if context.strip():
@@ -96,6 +103,12 @@ def run_agent(
 
     action_history: list[tuple[str, str]] = []
     step_count = 0
+
+    before_state = None
+    if env is not None:
+        before_state = env.ground_truth()
+
+    verification_rounds = 0
 
     while step_count < max_steps:
         step_count += 1
@@ -191,6 +204,106 @@ def run_agent(
         exec_res = registry.execute(action_name, args)
         observation = exec_res.get("observation", str(exec_res))
 
+        # Handle finish verification flow
+        if action_name == "finish" and exec_res.get("ok"):
+            claim = exec_res.get("claim", "")
+            evidence = exec_res.get("evidence", "")
+
+            if env is None:
+                trace.append(
+                    step=step_count,
+                    thought=thought,
+                    action=action_name,
+                    args=args,
+                    observation=observation,
+                    state=state.to_dict(),
+                )
+                return AgentResult(
+                    status="finished",
+                    claim=claim,
+                    evidence=evidence,
+                    steps=step_count,
+                    verified=None,
+                    verdict={"status": "skipped", "reasons": "No environment provided for verification."},
+                    diff=None,
+                )
+
+            after_state = env.ground_truth()
+            diff = compute_diff(before_state, after_state)
+            run_summary = {
+                "approvals": state.approvals,
+                "denials": state.denials,
+                "asks": state.asks,
+                "denial_notes": list(state.denial_notes),
+            }
+
+            v = verify(
+                task=task,
+                claim=claim,
+                evidence=evidence,
+                before=before_state,
+                after=after_state,
+                diff=diff,
+                run_summary=run_summary,
+                llm=llm,
+            )
+
+            if not v.achieved or not v.claim_accurate:
+                verification_rounds += 1
+                obs_mismatch = (
+                    f"Verification mismatch (round {verification_rounds}/2): {v.reasons}\n"
+                    f"Ground-truth diff: {json.dumps(diff, default=str)}\n"
+                    f"Please address this discrepancy or adjust your claim before finishing."
+                )
+                state.add_step(f"Step {step_count}: finish verification failed -> {v.reasons[:60]}")
+                trace.append(
+                    step=step_count,
+                    thought=thought,
+                    action=action_name,
+                    args=args,
+                    observation=obs_mismatch,
+                    state=state.to_dict(),
+                )
+
+                if verification_rounds < 2:
+                    obs_payload = f"{obs_mismatch}\n\nUpdated Memory:\n{state.to_prompt()}"
+                    messages.append({
+                        "role": "tool",
+                        "name": action_name,
+                        "content": obs_payload,
+                    })
+                    continue
+
+                # Stop after 2 failed rounds
+                return AgentResult(
+                    status="finished",
+                    claim=claim,
+                    evidence=evidence,
+                    steps=step_count,
+                    verified=False,
+                    verdict=v.to_dict(),
+                    diff=diff,
+                )
+
+            # Verification passed
+            trace.append(
+                step=step_count,
+                thought=thought,
+                action=action_name,
+                args=args,
+                observation=observation,
+                state=state.to_dict(),
+            )
+            return AgentResult(
+                status="finished",
+                claim=claim,
+                evidence=evidence,
+                steps=step_count,
+                verified=True,
+                verdict=v.to_dict(),
+                diff=diff,
+            )
+
         # Inject warning into observation on second consecutive repeat
         if repeat_count == 2:
             observation += (
@@ -211,15 +324,6 @@ def run_agent(
             state=state.to_dict(),
         )
 
-        # Check for successful finish
-        if action_name == "finish" and exec_res.get("ok"):
-            return AgentResult(
-                status="finished",
-                claim=exec_res.get("claim", ""),
-                evidence=exec_res.get("evidence", ""),
-                steps=step_count,
-            )
-
         # Append tool observation with current memory snapshot
         obs_payload = f"{observation}\n\nUpdated Memory:\n{state.to_prompt()}"
         messages.append({
@@ -229,9 +333,14 @@ def run_agent(
         })
 
     # Max steps reached without finish
+    after_state = env.ground_truth() if env is not None else None
+    diff = compute_diff(before_state, after_state) if env is not None else None
     return AgentResult(
         status="max_steps",
         claim="Maximum steps reached before goal completion.",
         evidence="",
         steps=step_count,
+        verified=False if env is not None else None,
+        verdict={"achieved": False, "claim_accurate": False, "reasons": "Maximum execution steps reached before task completion."} if env is not None else None,
+        diff=diff,
     )

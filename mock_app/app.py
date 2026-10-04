@@ -139,7 +139,12 @@ def new_bill():
                 error=f"Invoice number '{invoice_no}' already exists in the system. Duplicate invoices are rejected.",
             )
 
-        # 5. Insert new bill
+        # 5. Insert new bill (supports FAULT_SILENT_SAVE fault injection)
+        if os.getenv("FAULT_SILENT_SAVE") == "1":
+            conn.close()
+            flash(f"Bill #999 for {vendor} created successfully.", "success")
+            return redirect(url_for("list_bills"))
+
         try:
             cursor.execute(
                 """

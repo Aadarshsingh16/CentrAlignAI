@@ -4,9 +4,11 @@ from pathlib import Path
 from agent.browser import BrowserSession
 from agent.llm import LLM
 from agent.loop import run_agent
+from agent.policy import Policy, make_approval_guard, terminal_approval_fn
 from agent.state import AgentState
 from agent.tools import build_default_registry
 from agent.trace import Trace
+from mock_app.env import MockAppEnvironment
 
 def main():
     parser = argparse.ArgumentParser(description="Autonomous AI Task Worker")
@@ -59,6 +61,7 @@ def main():
     print(f"Trace log: {args.trace}\n" + "-" * 50)
 
     try:
+        env = MockAppEnvironment()
         result = run_agent(
             task=args.task,
             registry=registry,
@@ -67,6 +70,7 @@ def main():
             trace=trace,
             context=context_text,
             max_steps=40,
+            env=env,
         )
 
         print("\n" + "=" * 50)
@@ -75,6 +79,12 @@ def main():
         print(f"Steps:    {result.steps}")
         print(f"Claim:    {result.claim}")
         print(f"Evidence: {result.evidence}")
+        if result.verified is not None:
+            print(f"Verified: {result.verified}")
+        if result.verdict is not None:
+            print(f"Verdict:  {result.verdict}")
+        if result.diff is not None:
+            print(f"Diff:     {result.diff}")
         print("=" * 50 + "\n")
         return 0 if result.status == "finished" else 1
 

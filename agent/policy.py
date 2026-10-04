@@ -119,6 +119,8 @@ def make_approval_guard(
             return None
         else:
             state.denials += 1
+            if note:
+                state.denial_notes.append(note)
             reason = f"denied by user: {note}" if note else "denied by user"
             return {"block": reason}
 

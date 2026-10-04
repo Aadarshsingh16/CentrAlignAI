@@ -13,6 +13,7 @@ class AgentState:
     approvals: int = 0
     denials: int = 0
     asks: int = 0
+    denial_notes: list[str] = field(default_factory=list)
 
     def remember(self, key: str, value: Any) -> None:
         """Store or update a key-value fact in memory."""
@@ -31,6 +32,7 @@ class AgentState:
             "approvals": self.approvals,
             "denials": self.denials,
             "asks": self.asks,
+            "denial_notes": list(self.denial_notes),
         }
 
     def to_prompt(self, max_chars: int = 1500) -> str:
