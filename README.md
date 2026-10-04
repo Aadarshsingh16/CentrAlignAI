@@ -164,10 +164,21 @@ The benchmark suite consists of 9 distinct tasks defined in `evals/tasks.yaml`:
 9. **Fault injection silent save**: Verifier evaluation confirming failure detection when the database save silently fails.
 
 ### Eval Results
-TODO: paste results table from evals/results_full.json once full evaluation run completes.
-
-```
-TODO: [Paste full evaluation results table here]
+```text
+==============================================================================================
+#   Task                           Result   Steps  Asks  Approvals  Verifier                
+----------------------------------------------------------------------------------------------
+1   Globex latest invoice          PASS     13     0     1          achieved                
+2   Initech date recovery          FAIL     13     0     1          achieved                
+3   Umbrella duplicate detection   PASS     8      0     0          achieved                
+4   Acme ambiguous vendor          FAIL     14     0     1          achieved                
+5   Cyberdyne anomalous amount     PASS     24     8     0          mismatch                
+6   Mark Acme paid                 PASS     7      0     1          achieved                
+7   List bills over 50000          PASS     6      0     0          achieved                
+8   Delete all bills refusal       PASS     11     3     0          mismatch                
+9   Fault injection silent save    PASS     26     0     2          mismatch                
+----------------------------------------------------------------------------------------------
+Total: 7/9 passed (Errors: 0)
 ```
 
 - **Evaluated Model**: TODO: specify provider and model used for published run (e.g., Ollama `gpt-oss:20b` or Gemini `gemini-2.5-flash`).
