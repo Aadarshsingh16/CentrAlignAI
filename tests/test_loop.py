@@ -79,25 +79,80 @@ def test_repeated_action_detection(tmp_path):
     state = AgentState()
     registry = build_default_registry(browser=None, state=state, workspace_dir=tmp_path)
 
-    # Identical action called 3 times
+    # Identical action called on identical state 3 times
     identical_call = {
         "tool_call": {
             "name": "remember",
             "args": {"thought": "Looping", "key": "stuck_key", "value": "same_val"},
         }
     }
-    script = [identical_call, identical_call, identical_call]
+    # Initial call sets the state, followed by 3 calls on identical state
+    script = [identical_call, identical_call, identical_call, identical_call]
 
     llm = FakeLLM(script)
     res = run_agent("Test task", registry, llm, state, trace, max_steps=10)
 
     assert res.status == "stuck"
     assert "repeated identical actions" in res.claim.lower()
-    assert res.steps == 3
+    assert res.steps == 4
 
-    # Check that warning was injected at step 2
+    # Check that warning was injected on 2nd repeat on identical state (step 3)
     records = Trace.read(tmp_path / "trace.jsonl")
-    assert "WARNING" in records[1]["observation"]
+    assert "WARNING" in records[2]["observation"]
+
+def test_same_click_on_different_pages_not_a_repeat(tmp_path):
+    trace = Trace(tmp_path / "trace.jsonl")
+    state = AgentState()
+    registry = ToolRegistry()
+
+    pages = ["Login View: button id=4", "Bills View: button id=4"]
+    page_idx = [0]
+
+    def mock_click(id: str):
+        curr = pages[page_idx[0]]
+        if page_idx[0] < len(pages) - 1:
+            page_idx[0] += 1
+        return f"Clicked element {id} on {curr}. Current view: {pages[page_idx[0]]}"
+
+    registry.register(
+        Tool(
+            name="browser_click",
+            description="Click element",
+            parameters={
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+                "required": ["id"],
+            },
+            fn=mock_click,
+        )
+    )
+    registry.register(
+        Tool(
+            name="finish",
+            description="Finish",
+            parameters={
+                "type": "object",
+                "properties": {"claim": {"type": "string"}, "evidence": {"type": "string"}},
+                "required": ["claim"],
+            },
+            fn=lambda claim, evidence="": {"ok": True, "claim": claim, "evidence": evidence},
+        )
+    )
+
+    # Click id="4" on Login, click id="4" on Bills, then finish
+    script = [
+        {"tool_call": {"name": "browser_click", "args": {"id": "4"}}},
+        {"tool_call": {"name": "browser_click", "args": {"id": "4"}}},
+        {"tool_call": {"name": "finish", "args": {"claim": "Navigated across pages"}}},
+    ]
+
+    llm = FakeLLM(script)
+    res = run_agent("Test task", registry, llm, state, trace, max_steps=10)
+
+    assert res.status == "finished"
+    assert res.steps == 3
+    records = Trace.read(tmp_path / "trace.jsonl")
+    assert "WARNING" not in records[1]["observation"]
 
 def test_tool_error_appears_in_next_model_input(tmp_path):
     trace = Trace(tmp_path / "trace.jsonl")

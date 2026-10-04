@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -8,6 +9,10 @@ from agent.state import AgentState
 from agent.tools import ToolRegistry
 from agent.trace import Trace
 from agent.verifier import compute_diff, verify
+
+def _hash_observation(obs: str) -> str:
+    """Computes a stable hash of an observation string to capture situational state."""
+    return hashlib.sha256(obs.encode("utf-8", errors="replace")).hexdigest()[:16]
 
 @dataclass
 class AgentResult:
@@ -101,7 +106,8 @@ def run_agent(
     initial_prompt = f"Goal:\n{task}\n\nInitial State:\n{state.to_prompt()}"
     messages: list[dict[str, Any]] = [{"role": "user", "content": initial_prompt}]
 
-    action_history: list[tuple[str, str]] = []
+    action_history: list[tuple[str, str, str]] = []
+    last_observation: str = ""
     step_count = 0
 
     before_state = None
@@ -165,8 +171,12 @@ def run_agent(
         if not thought and response.text:
             thought = response.text.strip()
 
-        # Check for repetitive action loops
-        action_signature = (action_name, json.dumps(args, sort_keys=True))
+        # Check for repetitive action loops (action + args + state before action)
+        action_signature = (
+            action_name,
+            json.dumps(args, sort_keys=True),
+            _hash_observation(last_observation),
+        )
         repeat_count = 1
         for prev in reversed(action_history):
             if prev == action_signature:
@@ -202,7 +212,8 @@ def run_agent(
 
         # Execute tool
         exec_res = registry.execute(action_name, args)
-        observation = exec_res.get("observation", str(exec_res))
+        raw_observation = exec_res.get("observation", str(exec_res))
+        observation = raw_observation
 
         # Handle finish verification flow
         if action_name == "finish" and exec_res.get("ok"):
@@ -272,6 +283,7 @@ def run_agent(
                         "name": action_name,
                         "content": obs_payload,
                     })
+                    last_observation = obs_mismatch
                     continue
 
                 # Stop after 2 failed rounds
@@ -331,6 +343,7 @@ def run_agent(
             "name": action_name,
             "content": obs_payload,
         })
+        last_observation = raw_observation
 
     # Max steps reached without finish
     after_state = env.ground_truth() if env is not None else None
