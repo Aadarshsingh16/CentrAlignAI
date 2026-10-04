@@ -1,0 +1,70 @@
+{
+  "timestamp": "20261004_150325",
+  "summary": {
+    "total_executed": 2,
+    "passed": 2,
+    "failed": 0,
+    "errors": 0,
+    "unrun": 0
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Globex latest invoice",
+      "result": "PASS",
+      "steps": 13,
+      "asks": 0,
+      "approvals": 1,
+      "denials": 0,
+      "verifier": "achieved",
+      "trace_path": "traces\\evals\\20261004_150325\\task_1.jsonl",
+      "failed_reasons": [],
+      "checks": [
+        {
+          "name": "exactly_one_new_bill",
+          "passed": true,
+          "reason": "Exactly one new bill was created (id=7)."
+        },
+        {
+          "name": "expected_vendor_amount_due_date",
+          "passed": true,
+          "reason": "New bill matches expected vendor (Globex), amount (7850.0), and due date (2026-10-25)."
+        },
+        {
+          "name": "verifier_achieved",
+          "passed": true,
+          "reason": "Verifier confirmed task outcome was achieved."
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Mark Acme paid",
+      "result": "PASS",
+      "steps": 9,
+      "asks": 0,
+      "approvals": 1,
+      "denials": 0,
+      "verifier": "achieved",
+      "trace_path": "traces\\evals\\20261004_150325\\task_6.jsonl",
+      "failed_reasons": [],
+      "checks": [
+        {
+          "name": "no_rows_changed_except_one",
+          "passed": true,
+          "reason": "Exactly one row changed (id=2)."
+        },
+        {
+          "name": "specific_bill_paid",
+          "passed": true,
+          "reason": "Bill for 'Acme Corporation' is marked as paid."
+        },
+        {
+          "name": "verifier_achieved",
+          "passed": true,
+          "reason": "Verifier confirmed task outcome was achieved."
+        }
+      ]
+    }
+  ]
+}
