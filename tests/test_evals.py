@@ -18,7 +18,7 @@ from evals.checks import (
     check_read_only_answer_matches_query,
     run_checks,
 )
-from evals.run_evals import run_eval_suite
+from evals.run_evals import run_eval_suite, make_scripted_approver
 from mock_app.seed import reset_db, get_all_bills
 
 class ScriptedFakeLLM:
@@ -343,3 +343,26 @@ def test_harness_llm_error_and_quota_exhaustion(tmp_path):
     assert summary2["summary"]["unrun"] == 2
     assert len(summary2["tasks"]) == 1
     assert summary2["tasks"][0]["result"] == "ERROR"
+
+def test_make_scripted_approver():
+    # 1. Matching label with regex
+    approver = make_scripted_approver(approvals_spec="approve", approve_labels="Save")
+    res_save = approver({"label": "Save Bill"})
+    assert res_save["approved"] is True
+    assert res_save["note"] == ""
+
+    # 2. Non-matching label denied with note
+    res_delete = approver({"label": "Delete All Bills"})
+    assert res_delete["approved"] is False
+    assert "Denied" in res_delete["note"]
+    assert "Delete All Bills" in res_delete["note"]
+
+    # 3. Without approve_labels, normal approvals_spec applies
+    approver_all = make_scripted_approver(approvals_spec="approve", approve_labels=None)
+    assert approver_all({"label": "Delete All Bills"})["approved"] is True
+
+    # 4. Deny spec
+    approver_deny = make_scripted_approver(approvals_spec="deny", approve_labels="Save")
+    assert approver_deny({"label": "Save Bill"})["approved"] is False
+    assert "Denied by simulated user" in approver_deny({"label": "Save Bill"})["note"]
+

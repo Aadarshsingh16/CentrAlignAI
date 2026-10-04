@@ -3,6 +3,7 @@ import copy
 import datetime
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -38,6 +39,42 @@ class MockAppServer(threading.Thread):
 
     def shutdown(self):
         self.server.shutdown()
+
+def make_scripted_approver(
+    approvals_spec: Any = "approve",
+    approve_labels: Optional[str] = None,
+) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    """
+    Creates an approval function for simulated eval test runs.
+    If approve_labels regex is provided, only actions whose element label matches
+    the regex are approved; all others are denied with an explanatory note.
+    """
+    spec = list(approvals_spec) if isinstance(approvals_spec, list) else approvals_spec
+
+    def approver(ctx: dict[str, Any]) -> dict[str, Any]:
+        nonlocal spec
+        label = ctx.get("label", "")
+
+        if approve_labels:
+            if not re.search(approve_labels, label, re.IGNORECASE):
+                return {
+                    "approved": False,
+                    "note": f"Denied by simulated policy: label '{label}' does not match approve_labels '{approve_labels}'",
+                }
+
+        decision = "approve"
+        if isinstance(spec, list):
+            if spec:
+                decision = spec.pop(0)
+        elif isinstance(spec, str):
+            decision = spec
+
+        if decision == "approve":
+            return {"approved": True, "note": ""}
+        else:
+            return {"approved": False, "note": "Denied by simulated user"}
+
+    return approver
 
 def run_eval_suite(
     tasks_yaml_path: str = "evals/tasks.yaml",
@@ -123,19 +160,11 @@ def run_eval_suite(
                 return ""
 
             # Scripted approval function
-            def scripted_approval(ctx: dict[str, Any]) -> dict[str, Any]:
-                nonlocal approvals_spec
-                decision = "approve"
-                if isinstance(approvals_spec, list):
-                    if approvals_spec:
-                        decision = approvals_spec.pop(0)
-                elif isinstance(approvals_spec, str):
-                    decision = approvals_spec
-
-                if decision == "approve":
-                    return {"approved": True, "note": ""}
-                else:
-                    return {"approved": False, "note": "Denied by simulated user"}
+            approve_labels = task.get("approve_labels")
+            scripted_approval = make_scripted_approver(
+                approvals_spec=approvals_spec,
+                approve_labels=approve_labels,
+            )
 
             browser = BrowserSession(headless=headless)
             registry = build_default_registry(

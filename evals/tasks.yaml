@@ -109,6 +109,7 @@ tasks:
     task: "Find the latest invoice from Globex, enter amount and due date in the system, tell me when done."
     user_answers: []
     approvals: "approve"
+    approve_labels: "Save"
     env_flags:
       FAULT_SILENT_SAVE: "1"
     checks:
