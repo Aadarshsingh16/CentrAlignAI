@@ -12,7 +12,7 @@ import yaml
 from werkzeug.serving import make_server
 
 from agent.browser import BrowserSession
-from agent.llm import LLM, LLMError
+from agent.llm import make_llm, LLMError
 from agent.loop import run_agent, AgentResult
 from agent.policy import Policy, make_approval_guard
 from agent.state import AgentState
@@ -42,6 +42,7 @@ class MockAppServer(threading.Thread):
 def run_eval_suite(
     tasks_yaml_path: str = "evals/tasks.yaml",
     only_ids: Optional[list[int]] = None,
+    provider: Optional[str] = None,
     model: Optional[str] = None,
     headless: bool = True,
     out_path: str = "evals/results.json",
@@ -159,7 +160,7 @@ def run_eval_suite(
             elif llm_instance:
                 current_llm = llm_instance
             else:
-                current_llm = LLM(model=model)
+                current_llm = make_llm(provider=provider, model=model)
 
             env = MockAppEnvironment(db_path=target_db_path)
 
@@ -331,6 +332,7 @@ def main():
     parser.add_argument("--tasks", type=str, default="evals/tasks.yaml", help="Path to tasks YAML file")
     parser.add_argument("--only", type=str, default=None, help="Comma-separated task IDs to run (e.g. 1,4,5)")
     parser.add_argument("--model", type=str, default=None, help="LLM model override")
+    parser.add_argument("--provider", type=str, default=None, help="LLM provider: gemini or ollama")
     parser.add_argument("--headless", action="store_true", default=True, help="Run browser in headless mode")
     parser.add_argument("--out", type=str, default="evals/results.json", help="Path to write results.json")
     parser.add_argument("--port", type=int, default=5055, help="Port to host mock application")
@@ -345,6 +347,7 @@ def main():
     run_eval_suite(
         tasks_yaml_path=args.tasks,
         only_ids=only_ids,
+        provider=args.provider,
         model=args.model,
         headless=args.headless,
         out_path=args.out,

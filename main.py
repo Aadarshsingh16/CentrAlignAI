@@ -2,7 +2,7 @@ import argparse
 import sys
 from pathlib import Path
 from agent.browser import BrowserSession
-from agent.llm import LLM
+from agent.llm import make_llm
 from agent.loop import run_agent
 from agent.policy import Policy, make_approval_guard, terminal_approval_fn
 from agent.state import AgentState
@@ -17,6 +17,7 @@ def main():
     parser.add_argument("--context", type=str, default="company_context.md", help="Path to context markdown file")
     parser.add_argument("--trace", type=str, default="traces/run.jsonl", help="Output path for JSONL trace log")
     parser.add_argument("--model", type=str, default=None, help="LLM model override")
+    parser.add_argument("--provider", type=str, default=None, help="LLM provider: gemini or ollama")
     parser.add_argument("--headless", action="store_true", help="Run browser in headless mode")
 
     args = parser.parse_args()
@@ -54,7 +55,7 @@ def main():
     )
     registry.guards.append(approval_guard)
 
-    llm = LLM(model=args.model)
+    llm = make_llm(provider=args.provider, model=args.model)
 
     print(f"\nStarting Task: {args.task}")
     print(f"Model: {llm.model_name}")
