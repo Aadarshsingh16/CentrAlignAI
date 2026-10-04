@@ -1,6 +1,6 @@
 # CentrAlignAI — Autonomous AI Task Worker
 
-[Watch 3-minute Demo Video](https://jam.dev/c/8d2ed470-effa-4e8b-9762-fafd0a35b3b2)
+Demo Video (3 minutes): https://jam.dev/c/8d2ed470-effa-4e8b-9762-fafd0a35b3b2
 
 What the video shows:
 - (a) Happy path with an approval prompt and verifier diff
