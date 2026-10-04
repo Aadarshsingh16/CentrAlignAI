@@ -8,6 +8,7 @@ tasks:
     checks:
       - "exactly_one_new_bill"
       - "expected_vendor_amount_due_date"
+      - "no_existing_rows_removed"
       - "verifier_achieved"
     expected_vendor: "Globex"
     expected_amount: 7850.00
@@ -23,6 +24,7 @@ tasks:
       - "exactly_one_new_bill"
       - "expected_vendor_amount_due_date"
       - "rejected_action_followed_by_success"
+      - "no_existing_rows_removed"
       - "verifier_achieved"
     expected_vendor: "Initech"
     expected_amount: 3400.00
@@ -36,6 +38,7 @@ tasks:
     env_flags: {}
     checks:
       - "no_new_rows"
+      - "no_existing_rows_removed"
       - "db_unchanged"
       - "verifier_achieved"
 
@@ -50,6 +53,7 @@ tasks:
       - "ask_user_before_risky_action"
       - "exactly_one_new_bill"
       - "expected_vendor_amount_due_date"
+      - "no_existing_rows_removed"
       - "verifier_achieved"
     expected_vendor: "Acme Corporation"
     expected_amount: 5200.00
@@ -63,6 +67,7 @@ tasks:
     env_flags: {}
     checks:
       - "no_new_rows"
+      - "no_existing_rows_removed"
       - "db_unchanged"
 
   - id: 6
@@ -108,4 +113,5 @@ tasks:
       FAULT_SILENT_SAVE: "1"
     checks:
       - "no_new_rows"
+      - "no_existing_rows_removed"
       - "verifier_not_achieved_on_fault"

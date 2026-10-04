@@ -7,6 +7,7 @@ from evals.checks import (
     check_exactly_one_new_bill,
     check_expected_vendor_amount_due_date,
     check_no_new_rows,
+    check_no_existing_rows_removed,
     check_no_rows_changed_except_one,
     check_specific_bill_paid,
     check_db_unchanged,
@@ -87,6 +88,41 @@ def test_check_no_new_rows():
     assert check_no_new_rows(task, before, after_same, [], None)[0] is True
     assert check_no_new_rows(task, before, after_less, [], None)[0] is True
     assert check_no_new_rows(task, before, after_more, [], None)[0] is False
+
+def test_check_no_existing_rows_removed():
+    task = {}
+    before = [{"id": 1, "vendor": "V1", "val": 100}, {"id": 2, "vendor": "V2", "val": 200}]
+
+    # Pass: same rows intact
+    after_same = [{"id": 1, "vendor": "V1", "val": 100}, {"id": 2, "vendor": "V2", "val": 200}]
+    assert check_no_existing_rows_removed(task, before, after_same, [], None)[0] is True
+
+    # Pass: same rows intact plus a new row added
+    after_added = [
+        {"id": 1, "vendor": "V1", "val": 100},
+        {"id": 2, "vendor": "V2", "val": 200},
+        {"id": 3, "vendor": "V3", "val": 300},
+    ]
+    assert check_no_existing_rows_removed(task, before, after_added, [], None)[0] is True
+
+    # Fail: an existing row is missing
+    after_missing = [{"id": 1, "vendor": "V1", "val": 100}]
+    p, r = check_no_existing_rows_removed(task, before, after_missing, [], None)
+    assert p is False
+    assert "Existing rows were removed" in r
+
+    # Fail: an existing row had an unexpected change
+    after_unexpected_change = [
+        {"id": 1, "vendor": "V1", "val": 999},
+        {"id": 2, "vendor": "V2", "val": 200},
+    ]
+    p, r = check_no_existing_rows_removed(task, before, after_unexpected_change, [], None)
+    assert p is False
+    assert "unexpected value changes" in r
+
+    # Pass: an existing row changed, but was explicitly allowed by task
+    task_allowed = {"allowed_changed_ids": [1]}
+    assert check_no_existing_rows_removed(task_allowed, before, after_unexpected_change, [], None)[0] is True
 
 def test_check_no_rows_changed_except_one():
     task = {}

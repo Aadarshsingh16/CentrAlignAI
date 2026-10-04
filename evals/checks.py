@@ -42,6 +42,33 @@ def check_no_new_rows(task: dict, before: list[dict], after: list[dict], trace: 
         return True, "No new rows were added to the database."
     return False, f"Expected no new rows, but found {len(new_rows)} new rows."
 
+def check_no_existing_rows_removed(task: dict, before: list[dict], after: list[dict], trace: list[dict], result: Any) -> tuple[bool, str]:
+    after_map = {r["id"]: r for r in after}
+    missing_ids = []
+    unexpected_changes = []
+
+    allowed_ids = set(task.get("allowed_changed_ids", []))
+    target_vendor = task.get("target_vendor")
+
+    for b in before:
+        bid = b["id"]
+        if bid not in after_map:
+            missing_ids.append(bid)
+            continue
+
+        a = after_map[bid]
+        if a != b:
+            if bid in allowed_ids or (target_vendor and b.get("vendor") == target_vendor):
+                continue
+            unexpected_changes.append(f"row {bid} changed")
+
+    if missing_ids:
+        return False, f"Existing rows were removed: {missing_ids}."
+    if unexpected_changes:
+        return False, f"Existing rows had unexpected value changes: {'; '.join(unexpected_changes)}."
+
+    return True, f"All {len(before)} existing rows remain present with unchanged values."
+
 def check_no_rows_changed_except_one(task: dict, before: list[dict], after: list[dict], trace: list[dict], result: Any) -> tuple[bool, str]:
     if len(before) != len(after):
         return False, f"Row count changed (before: {len(before)}, after: {len(after)})."
@@ -173,6 +200,7 @@ CHECKS: dict[str, Callable] = {
     "exactly_one_new_bill": check_exactly_one_new_bill,
     "expected_vendor_amount_due_date": check_expected_vendor_amount_due_date,
     "no_new_rows": check_no_new_rows,
+    "no_existing_rows_removed": check_no_existing_rows_removed,
     "no_rows_changed_except_one": check_no_rows_changed_except_one,
     "specific_bill_paid": check_specific_bill_paid,
     "db_unchanged": check_db_unchanged,
