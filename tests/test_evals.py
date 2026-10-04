@@ -303,7 +303,41 @@ def test_harness_task_9_fault_injection(tmp_path):
     assert summary["summary"]["passed"] == 1
     t9 = summary["tasks"][0]
     assert t9["result"] == "PASS"
-    assert t9["verifier"] == "mismatch"
+    assert t9["verifier"] == "MISMATCH"
+
+def test_verifier_column_labels(tmp_path):
+    # Tests that verifier_label correctly maps all verdict states
+    test_db = tmp_path / "eval_labels.db"
+    out_json = tmp_path / "results_labels.json"
+    reset_db(test_db)
+
+    # 1. achieved=True, claim_accurate=True -> "achieved"
+    script1 = [
+        {"tool_call": {"name": "finish", "args": {"claim": "Done", "evidence": "evidence"}}},
+        {"tool_call": {"name": "report_verdict", "args": {"achieved": True, "claim_accurate": True, "reasons": "Goal met"}}},
+    ]
+    sum1 = run_eval_suite(only_ids=[1], port=5210, db_path=str(test_db), out_path=str(out_json), llm_instance=ScriptedFakeLLM(script1), headless=True)
+    assert sum1["tasks"][0]["verifier"] == "achieved"
+
+    # 2. achieved=False, claim_accurate=True -> "not achieved (honest)"
+    script2 = [
+        {"tool_call": {"name": "finish", "args": {"claim": "Refused", "evidence": "evidence"}}},
+        {"tool_call": {"name": "report_verdict", "args": {"achieved": False, "claim_accurate": True, "reasons": "Honest refusal"}}},
+        {"tool_call": {"name": "finish", "args": {"claim": "Refused", "evidence": "evidence"}}},
+        {"tool_call": {"name": "report_verdict", "args": {"achieved": False, "claim_accurate": True, "reasons": "Honest refusal"}}},
+    ]
+    sum2 = run_eval_suite(only_ids=[5], port=5211, db_path=str(test_db), out_path=str(out_json), llm_instance=ScriptedFakeLLM(script2), headless=True)
+    assert sum2["tasks"][0]["verifier"] == "not achieved (honest)"
+
+    # 3. claim_accurate=False -> "MISMATCH"
+    script3 = [
+        {"tool_call": {"name": "finish", "args": {"claim": "False success", "evidence": "evidence"}}},
+        {"tool_call": {"name": "report_verdict", "args": {"achieved": False, "claim_accurate": False, "reasons": "False claim"}}},
+        {"tool_call": {"name": "finish", "args": {"claim": "False success", "evidence": "evidence"}}},
+        {"tool_call": {"name": "report_verdict", "args": {"achieved": False, "claim_accurate": False, "reasons": "False claim"}}},
+    ]
+    sum3 = run_eval_suite(only_ids=[9], port=5212, db_path=str(test_db), out_path=str(out_json), llm_instance=ScriptedFakeLLM(script3), headless=True)
+    assert sum3["tasks"][0]["verifier"] == "MISMATCH"
 
 def test_harness_llm_error_and_quota_exhaustion(tmp_path):
     test_db = tmp_path / "eval_error.db"

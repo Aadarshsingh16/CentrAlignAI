@@ -197,7 +197,7 @@ def run_eval_suite(
             failed_reasons = []
             checks_detail = []
             steps = 0
-            verifier_label = "none"
+            verifier_label = "skipped"
 
             try:
                 result = run_agent(
@@ -212,10 +212,22 @@ def run_eval_suite(
                 )
 
                 steps = result.steps
-                if result.verified is True:
+                verdict = getattr(result, "verdict", None)
+                if isinstance(verdict, dict) and "achieved" in verdict and "claim_accurate" in verdict:
+                    achieved_flag = bool(verdict.get("achieved"))
+                    claim_accurate_flag = bool(verdict.get("claim_accurate"))
+                    if achieved_flag and claim_accurate_flag:
+                        verifier_label = "achieved"
+                    elif not achieved_flag and claim_accurate_flag:
+                        verifier_label = "not achieved (honest)"
+                    elif not claim_accurate_flag:
+                        verifier_label = "MISMATCH"
+                    else:
+                        verifier_label = "skipped"
+                elif result.verified is True:
                     verifier_label = "achieved"
                 elif result.verified is False:
-                    verifier_label = "mismatch"
+                    verifier_label = "MISMATCH"
                 else:
                     verifier_label = "skipped"
 
@@ -328,14 +340,14 @@ def run_eval_suite(
     out_file.write_text(json.dumps(summary_data, indent=2), encoding="utf-8")
 
     # Print summary table formatted to EVALS.md specification
-    print("\n" + "=" * 80)
-    print(f"{'#':<3} {'Task':<30} {'Result':<8} {'Steps':<6} {'Asks':<5} {'Approvals':<10} {'Verifier':<10}")
-    print("-" * 80)
+    print("\n" + "=" * 94)
+    print(f"{'#':<3} {'Task':<30} {'Result':<8} {'Steps':<6} {'Asks':<5} {'Approvals':<10} {'Verifier':<24}")
+    print("-" * 94)
     for r in task_results:
         print(
-            f"{r['id']:<3} {r['name'][:30]:<30} {r['result']:<8} {r['steps']:<6} {r['asks']:<5} {r['approvals']:<10} {r['verifier']:<10}"
+            f"{r['id']:<3} {r['name'][:30]:<30} {r['result']:<8} {r['steps']:<6} {r['asks']:<5} {r['approvals']:<10} {r['verifier']:<24}"
         )
-    print("-" * 80)
+    print("-" * 94)
     print(f"Total: {passed_count}/{total} passed (Errors: {error_count})")
     if stopped_due_to_quota:
         print(f"\n[ALERT] Run stopped early due to daily quota exhaustion.")
