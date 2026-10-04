@@ -1,13 +1,12 @@
 import os
+import re
 import sys
 import time
 import random
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from dotenv import load_dotenv
 
-# Load .env if present
 load_dotenv()
 
 class LLMError(Exception):
@@ -21,22 +20,91 @@ class LLMResponse:
     tool_call: Optional[dict[str, Any]]
     raw: Any
 
+def extract_retry_delay(e: Exception) -> Optional[float]:
+    """Extracts suggested retry delay in seconds from error details or error message string."""
+    # 1. Inspect structured details if present
+    details = getattr(e, "details", None)
+    if not details and hasattr(e, "response_json") and isinstance(e.response_json, dict):
+        details = e.response_json.get("error", {}).get("details", [])
+    if isinstance(details, list):
+        for item in details:
+            if isinstance(item, dict) and "retryDelay" in item:
+                val = str(item["retryDelay"]).rstrip("s")
+                try:
+                    return float(val)
+                except ValueError:
+                    pass
+
+    # 2. Regex fallback for retryDelay pattern
+    err_str = str(e)
+    m = re.search(r"['\"]retryDelay['\"]\s*:\s*['\"](\d+(?:\.\d+)?)s?['\"]", err_str)
+    if m:
+        try:
+            return float(m.group(1))
+        except ValueError:
+            pass
+
+    # 3. Regex fallback for 'Please retry in X.Xs'
+    m2 = re.search(r"retry in (\d+(?:\.\d+)?)s", err_str, re.IGNORECASE)
+    if m2:
+        try:
+            return float(m2.group(1))
+        except ValueError:
+            pass
+
+    return None
+
 class LLM:
     """
     Single adapter for Gemini LLM using google-genai SDK.
-    Handles message formatting, tool schema conversion, forced tool calls, and retries.
+    Handles message formatting, tool schema conversion, forced tool calls,
+    client-side rate-limit throttling, and retry backoff.
     """
 
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        client: Any = None,
+        time_fn: Callable[[], float] = time.time,
+        sleep_fn: Callable[[float], None] = time.sleep,
+        max_rpm: Optional[float] = None,
+    ):
         self.api_key = (api_key or os.getenv("GEMINI_API_KEY", "")).strip()
-        if not self.api_key:
-            raise LLMError("GEMINI_API_KEY environment variable is missing or empty.")
-
-        # Default model priority: GEMINI_MODEL env var -> gemini-2.5-flash
         self.model_name = (model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")).strip()
-        
-        from google import genai
-        self.client = genai.Client(api_key=self.api_key)
+        self.time_fn = time_fn
+        self.sleep_fn = sleep_fn
+
+        # Client-side throttling: default 4 RPM (space calls >= 15s apart)
+        if max_rpm is not None:
+            self.max_rpm = float(max_rpm)
+        else:
+            rpm_str = os.getenv("LLM_MAX_RPM", "4").strip()
+            self.max_rpm = float(rpm_str) if rpm_str else 4.0
+
+        self.min_interval = (60.0 / self.max_rpm) if self.max_rpm > 0 else 0.0
+        self._last_call_time = 0.0
+
+        if client is not None:
+            self.client = client
+        else:
+            if not self.api_key:
+                raise LLMError("GEMINI_API_KEY environment variable is missing or empty.")
+            from google import genai
+            self.client = genai.Client(api_key=self.api_key)
+
+    def _apply_throttle(self) -> None:
+        """Enforces minimum interval between consecutive API calls."""
+        if self.min_interval <= 0:
+            return
+        now = self.time_fn()
+        elapsed = now - self._last_call_time
+        if self._last_call_time > 0 and elapsed < self.min_interval:
+            wait_time = self.min_interval - elapsed
+            if wait_time > 0.05:
+                print(f"[rate limit] waiting {int(wait_time + 0.99)}s (throttling {self.max_rpm} RPM)...")
+                self.sleep_fn(wait_time)
+        self._last_call_time = self.time_fn()
 
     def _convert_messages(self, messages: list[dict[str, Any]]) -> list[Any]:
         """
@@ -82,14 +150,13 @@ class LLM:
         system: str,
         messages: list[dict[str, Any]],
         tool_schemas: list[dict[str, Any]],
-        max_retries: int = 4,
+        max_retries: int = 6,
     ) -> LLMResponse:
         """
         Executes a chat turn with forced function calling (mode ANY).
-        Implements exponential backoff on 429 and 5xx errors.
+        Applies client-side throttling and exponential/retryDelay backoff on 429 and 5xx errors.
         """
         from google.genai import types
-        from google.genai.errors import APIError
 
         tools = [{"function_declarations": tool_schemas}]
         config = types.GenerateContentConfig(
@@ -106,6 +173,9 @@ class LLM:
 
         last_error = None
         for attempt in range(max_retries):
+            # Enforce client throttle before dispatching request
+            self._apply_throttle()
+
             try:
                 response = self.client.models.generate_content(
                     model=self.model_name,
@@ -113,7 +183,7 @@ class LLM:
                     config=config,
                 )
 
-                # Extract response text and tool call
+                # Extract response text cleanly
                 text = ""
                 if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
                     text_parts = [p.text for p in response.candidates[0].content.parts if getattr(p, "text", None)]
@@ -136,20 +206,31 @@ class LLM:
             except Exception as e:
                 last_error = e
                 err_str = str(e).lower()
-                is_retryable = (
-                    "429" in err_str
-                    or "500" in err_str
+                is_429 = "429" in err_str or "resource_exhausted" in err_str
+                is_5xx = (
+                    "500" in err_str
                     or "502" in err_str
                     or "503" in err_str
                     or "504" in err_str
-                    or "resource_exhausted" in err_str
                     or "unavailable" in err_str
                 )
-                if is_retryable and attempt < max_retries - 1:
-                    sleep_time = (2 ** attempt) + random.uniform(0.5, 1.5)
-                    time.sleep(sleep_time)
+
+                if (is_429 or is_5xx) and attempt < max_retries - 1:
+                    if is_429:
+                        delay = extract_retry_delay(e)
+                        if delay is not None:
+                            wait_sec = min(delay + 1.0, 90.0)
+                        else:
+                            wait_sec = min((2 ** (attempt + 1)) + random.uniform(1.0, 3.0), 90.0)
+                    else:
+                        # 5xx error backoff
+                        wait_sec = min((2 ** (attempt + 1)) + random.uniform(1.0, 3.0), 90.0)
+
+                    print(f"[rate limit] waiting {int(wait_sec)}s (attempt {attempt + 1}/{max_retries})...")
+                    self.sleep_fn(wait_sec)
                     continue
                 else:
+                    # Non-retryable error or exhausted retries
                     raise LLMError(f"LLM request failed after {attempt + 1} attempt(s): {e}") from e
 
         raise LLMError(f"LLM request failed after {max_retries} attempts: {last_error}")
