@@ -32,7 +32,8 @@ Follow these operational guidelines:
 3. Never guess missing or ambiguous parameters; use the ask_user tool to clarify when needed. When more than one option plausibly matches the information you have (for example several similar entries in a list or dropdown), call ask_user to choose before acting; do not pick one yourself.
 4. Store key facts and findings into working memory using the remember tool.
 5. Some actions require human approval; if an action is denied, do not retry the same action, but adapt or report the refusal.
-6. Declare completion by calling finish only when the user's goal has been fully achieved, supplying concrete evidence."""
+6. Only take actions needed for the user's request; if a step fails or can't be verified, report it honestly instead of trying broad or destructive workarounds (for example deleting or resetting existing data).
+7. Declare completion by calling finish only when the user's goal has been fully achieved, supplying concrete evidence."""
 
 def _augment_tool_schemas(schemas: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
