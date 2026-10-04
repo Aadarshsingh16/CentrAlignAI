@@ -215,6 +215,13 @@ class LLM:
                     or "unavailable" in err_str
                 )
 
+                if is_429:
+                    delay = extract_retry_delay(e)
+                    is_per_day = "perday" in err_str
+                    if is_per_day or (delay is not None and delay > 120.0):
+                        hours_msg = f"~{max(1, round(delay / 3600))}h" if delay else "tomorrow"
+                        raise LLMError(f"daily quota exhausted for {self.model_name}, resets in {hours_msg}") from e
+
                 if (is_429 or is_5xx) and attempt < max_retries - 1:
                     if is_429:
                         delay = extract_retry_delay(e)
@@ -254,8 +261,31 @@ def list_available_models():
             count += 1
     print(f"Total: {count} models found.")
 
+def probe_model(model_name: str):
+    """Makes a minimal call to a model and prints OK or the error."""
+    load_dotenv()
+    key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not key:
+        print("GEMINI_API_KEY is not set in environment or .env")
+        sys.exit(1)
+
+    from google import genai
+    client = genai.Client(api_key=key)
+    try:
+        res = client.models.generate_content(model=model_name, contents="ping")
+        txt = res.text.strip() if res.text else "OK"
+        print(f"OK ({txt})")
+    except Exception as e:
+        print(f"Error: {e}")
+
 if __name__ == "__main__":
     if "--list-models" in sys.argv:
         list_available_models()
+    elif "--probe" in sys.argv:
+        idx = sys.argv.index("--probe")
+        if idx + 1 < len(sys.argv):
+            probe_model(sys.argv[idx + 1])
+        else:
+            print("Usage: python -m agent.llm --probe MODEL")
     else:
-        print("Usage: python -m agent.llm --list-models")
+        print("Usage: python -m agent.llm [--list-models | --probe MODEL]")

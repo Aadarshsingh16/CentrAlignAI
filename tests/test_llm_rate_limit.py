@@ -142,3 +142,30 @@ def test_non_429_error_is_not_retried_forever():
     # Must fail on attempt 1 without retries
     assert client.models.call_count == 1
     assert len(clock.sleep_history) == 0
+
+def test_daily_quota_fails_fast():
+    clock = FakeClock()
+    # Daily quota error with PerDay and large retryDelay
+    daily_error = Exception(
+        "429 RESOURCE_EXHAUSTED: GenerateRequestsPerDayPerProjectPerModel-FreeTier limit exceeded. "
+        "{'details': [{'retryDelay': '84000s'}]}"
+    )
+    client = FakeGenAIClient([daily_error, make_valid_response()])
+
+    llm = LLM(
+        api_key="test-key",
+        model="gemini-2.5-flash",
+        client=client,
+        time_fn=clock.time,
+        sleep_fn=clock.sleep,
+        max_rpm=0,
+    )
+
+    with pytest.raises(LLMError) as exc_info:
+        llm.chat(system="sys", messages=[{"role": "user", "content": "hi"}], tool_schemas=[])
+
+    assert "daily quota exhausted" in str(exc_info.value).lower()
+    assert "gemini-2.5-flash" in str(exc_info.value)
+    # Must fail immediately on attempt 1 with zero sleep attempts
+    assert client.models.call_count == 1
+    assert len(clock.sleep_history) == 0
